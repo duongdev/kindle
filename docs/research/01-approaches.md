@@ -8,15 +8,15 @@ Result of the kindlemodding.org wizard rules (`jailbreaks.json`, `models.json`) 
 
 | Method | Firmware range for KOA3 | Matches? | Notes |
 |---|---|---|---|
-| **SpiderCat** (2026-01-09) | 5.16.3 – 5.19.5 | Yes, wizard's first pick | Open a book file (copy over USB to `documents/`). Wi-Fi must stay on until it finishes. |
-| Nosebleed (2026-02-03) | 5.16.4 – 5.18.6 | Yes | Copy 2 files to the root, then open a page in the Kindle browser. |
+| **SpiderCat** (2026-09-01) | 5.16.3 – 5.19.5 | Yes, wizard's first pick | Open a book file (copy over USB to `documents/`). Wi-Fi must stay on until it finishes. |
+| Nosebleed (2026-03-02) | 5.16.4 – 5.18.6 | Yes | Copy 2 files to the root, then open a page in the Kindle browser. |
 | Sanctuary | 5.16.4 – 5.18.3 | Yes | Not yet read. |
 | AdBreak | 5.18.1 – 5.18.5.0.1 | No | Needs an ad-supported device. |
 | WinterBreak / WinterBreak2 | up to 5.18.0.2 / 5.16.3 | No | Firmware too new. |
 
 All current methods need Wi-Fi during the jailbreak. To stop an automatic update in that window, first fill the storage with filler files ("Prevent Automatic Updates" page), then delete the filler and any `.bin` files in the root afterward.
 
-After the jailbreak: install the hotfix (keeps the jailbreak through updates), KUAL (launcher), MRPI (package installer), and USBNetwork (SSH).
+After the jailbreak (modern flow): Installing Homebrew (scriptlets + KPM), Jailbreaking Manager (Jobman: update blocking, SSH, recovery), then `;kpm install koreader`. Hotfix, KUAL, MRPI, USBNetwork are legacy. See 05-jailbreak-risks.md.
 
 ## Runtime layers, lightest to heaviest
 
