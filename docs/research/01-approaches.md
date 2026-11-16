@@ -4,11 +4,17 @@ Researched 2026-11-16.
 
 ## Jailbreak for firmware 5.18.2.1.1
 
-| Method | Firmware | Condition | Status for KOA3 |
+Result of the kindlemodding.org wizard rules (`jailbreaks.json`, `models.json`) for KOA3, firmware 5.18.2.1.1, ad-free, registered. Checked 2026-11-16.
+
+| Method | Firmware range for KOA3 | Matches? | Notes |
 |---|---|---|---|
-| WinterBreak | 5.16.4 – 5.18.0.2 | - | Does not apply |
-| AdBreak | 5.18.1 – 5.18.5 | Special Offers (ads) must be on | One user reports success on 5.18.2 (weak) |
-| Nosebleed (2026-02-03) | 5.16.4 – 5.18.6 | - | KOA3 listed as "possibly", unconfirmed |
+| **SpiderCat** (2026-01-09) | 5.16.3 – 5.19.5 | Yes, wizard's first pick | Open a book file (copy over USB to `documents/`). Wi-Fi must stay on until it finishes. |
+| Nosebleed (2026-02-03) | 5.16.4 – 5.18.6 | Yes | Copy 2 files to the root, then open a page in the Kindle browser. |
+| Sanctuary | 5.16.4 – 5.18.3 | Yes | Not yet read. |
+| AdBreak | 5.18.1 – 5.18.5.0.1 | No | Needs an ad-supported device. |
+| WinterBreak / WinterBreak2 | up to 5.18.0.2 / 5.16.3 | No | Firmware too new. |
+
+All current methods need Wi-Fi during the jailbreak. To stop an automatic update in that window, first fill the storage with filler files ("Prevent Automatic Updates" page), then delete the filler and any `.bin` files in the root afterward.
 
 After the jailbreak: install the hotfix (keeps the jailbreak through updates), KUAL (launcher), MRPI (package installer), and USBNetwork (SSH).
 
@@ -41,7 +47,10 @@ After the jailbreak: install the hotfix (keeps the jailbreak through updates), K
 
 ## Sources
 
+- https://kindlemodding.org/jailbreak-wizard.html (rules: https://kindlemodding.org/jailbreaks.json)
+- https://kindlemodding.org/jailbreaking/SpiderCat/
 - https://kindlemodding.org/jailbreaking/Nosebleed/
+- https://kindlemodding.org/jailbreaking/prevent-auto-update/
 - https://kindlemodding.org/jailbreaking/WinterBreak2/
 - https://kindlemodding.org/jailbreaking/jailbreak-faq
 - https://www.mobileread.com/forums/showthread.php?p=4539338 (AdBreak range)
