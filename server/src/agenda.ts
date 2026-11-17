@@ -13,13 +13,23 @@ export interface HomeAgenda {
 }
 
 const visible = (events: CalEvent[]) => events.filter((e) => !HIDE_TITLE.test(e.title));
+const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const nextDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+// A timed event belongs to every day it overlaps (overnight and multi-day events too). A zero-length event
+// belongs to the day it starts.
+const onDay = (e: CalEvent, from: Date, to: Date) => e.start < to && (e.end > from || e.start >= from);
+// Start and end cut to the day: "00:00" when it began earlier, "24:00" when it goes on past midnight.
+const clipStart = (e: CalEvent, from: Date) => (e.start < from ? "00:00" : hhmm(e.start));
+const clipEnd = (e: CalEvent, to: Date) => (e.end >= to ? "24:00" : hhmm(e.end));
 const byStart = (a: CalEvent, b: CalEvent) =>
   a.start.getTime() - b.start.getTime() || a.end.getTime() - b.end.getTime();
 
 // overflow.md "Home agenda": all-day events merge into one row; timed events by start; "+N" in the last row.
 export function homeAgenda(all: CalEvent[], now: Date): HomeAgenda {
   const events = visible(all);
-  const today = events.filter((e) => (e.allDay ? e.start <= now && e.end > now : sameDay(e.start, now)));
+  const from = dayStart(now);
+  const to = nextDay(now);
+  const today = events.filter((e) => (e.allDay ? e.start <= now && e.end > now : onDay(e, from, to)));
   const timed = today.filter((e) => !e.allDay).sort(byStart);
   const allDay = today.filter((e) => e.allDay);
   const past = timed.filter((e) => e.end <= now);
@@ -38,7 +48,7 @@ export function homeAgenda(all: CalEvent[], now: Date): HomeAgenda {
   }
   const slots = 2 - rows.length;
   const shown = rest.slice(0, slots);
-  for (const e of shown) rows.push({ time: hhmm(e.start), text: (e.tentative ? "? " : "") + e.title });
+  for (const e of shown) rows.push({ time: clipStart(e, from), text: (e.tentative ? "? " : "") + e.title });
   const hidden = rest.length - shown.length;
   if (hidden > 0 && rows.length) rows[rows.length - 1].more = hidden;
 
@@ -71,7 +81,6 @@ export interface AgendaRow {
 }
 
 export const DAY_SLOTS = 5;
-const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const daysBetween = (a: Date, b: Date) => Math.round((dayStart(b).getTime() - dayStart(a).getTime()) / 86_400_000);
 const titled = (e: CalEvent) => (e.tentative ? "? " : "") + e.title;
 
@@ -96,10 +105,10 @@ function allDayRow(events: CalEvent[], day: Date): AgendaRow {
 // then the last row becomes "+N sự kiện (HH:MM–HH:MM)". Empty array = no events that day.
 export function agendaDay(all: CalEvent[], day: Date, now: Date): AgendaRow[] {
   const from = dayStart(day);
-  const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
+  const to = nextDay(day);
   const events = visible(all);
   const allDay = events.filter((e) => e.allDay && e.start < to && e.end > from);
-  const timed = events.filter((e) => !e.allDay && sameDay(e.start, from)).sort(byStart);
+  const timed = events.filter((e) => !e.allDay && onDay(e, from, to)).sort(byStart);
 
   const rows: AgendaRow[] = allDay.length ? [allDayRow(allDay, from)] : [];
   const slots = DAY_SLOTS - rows.length;
@@ -115,7 +124,7 @@ export function agendaDay(all: CalEvent[], day: Date, now: Date): AgendaRow[] {
 
   for (const e of shown) {
     rows.push({
-      time: `${hhmm(e.start)}–${hhmm(e.end)}`,
+      time: `${clipStart(e, from)}–${clipEnd(e, to)}`,
       title: titled(e),
       tag: e === next ? nextLabel(e.start, e.start <= now, now, true) : e.calendar,
       past: e.end <= now,
@@ -123,11 +132,11 @@ export function agendaDay(all: CalEvent[], day: Date, now: Date): AgendaRow[] {
     });
   }
   if (hidden.length) {
-    const start = Math.min(...hidden.map((e) => e.start.getTime()));
-    const end = Math.max(...hidden.map((e) => e.end.getTime()));
+    const first = hidden.reduce((a, b) => (b.start < a.start ? b : a));
+    const last = hidden.reduce((a, b) => (b.end > a.end ? b : a));
     rows.push({
       time: "",
-      title: `+${hidden.length} sự kiện (${hhmm(new Date(start))}–${hhmm(new Date(end))})`,
+      title: `+${hidden.length} sự kiện (${clipStart(first, from)}–${clipEnd(last, to)})`,
       tag: "",
       more: true,
     });

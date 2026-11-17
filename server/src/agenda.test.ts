@@ -136,3 +136,33 @@ test("agenda day: overlapping events sort by start, then end; tentative gets ?",
   assert.deepEqual(titles(rows), ["First", "? Short", "Long"]);
   assert.equal(rows[1].time, "09:15–09:30");
 });
+
+test("overnight and multi-day timed events show on every day they cover, with times cut to the day", () => {
+  const overnight = ev("Deploy", "23:00", "01:00", { start: at("23:00", 16), end: at("01:00", 17) });
+  const conf = ev("Conf", "09:00", "17:00", { start: at("09:00", 17), end: at("17:00", 19) });
+  const events = [overnight, conf];
+
+  const today = agendaDay(events, at("00:00"), at("00:30"));
+  assert.deepEqual(titles(today), ["Deploy", "Conf"]);
+  assert.equal(today[0].time, "00:00–01:00");
+  assert.equal(today[0].next, true);
+  assert.equal(today[1].time, "09:00–24:00");
+
+  const middle = agendaDay(events, at("00:00", 18), at("00:30"));
+  assert.deepEqual(titles(middle), ["Conf"]);
+  assert.equal(middle[0].time, "00:00–24:00");
+  assert.equal(agendaDay(events, at("00:00", 19), at("00:30"))[0].time, "00:00–17:00");
+  assert.deepEqual(agendaDay(events, at("00:00", 20), at("00:30")), []);
+
+  const home = homeAgenda(events, at("00:30"));
+  assert.equal(home.next?.event.title, "Deploy");
+  assert.equal(home.next?.inProgress, true);
+  assert.equal(home.rows[0].time, "09:00");
+  assert.equal(homeAgenda(events, at("10:00", 18)).next?.event.title, "Conf");
+});
+
+test("an event ending at midnight does not spill into the next day", () => {
+  const late = ev("Late", "22:00", "00:00", { start: at("22:00", 17), end: at("00:00", 18) });
+  assert.deepEqual(agendaDay([late], at("00:00", 18), at("10:00")), []);
+  assert.equal(agendaDay([late], at("00:00"), at("10:00"))[0].time, "22:00–24:00");
+});

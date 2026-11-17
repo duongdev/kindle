@@ -28,7 +28,7 @@ export interface Config {
 
 const root = resolve(import.meta.dirname, "..");
 
-// CONFIG_JSON (the file content) suits a Portainer stack; CONFIG (a path) suits local runs.
+// CONFIG_JSON (the file content) suits an env-only deploy; CONFIG (a path) suits the mounted file and local runs.
 export const config: Config = JSON.parse(
   process.env.CONFIG_JSON ?? readFileSync(resolve(root, process.env.CONFIG ?? "config.example.json"), "utf8"),
 );
@@ -41,6 +41,8 @@ export const env = {
   hbUrl: process.env.HB_URL,
   hbUser: process.env.HB_USER,
   hbPass: process.env.HB_PASS,
+  // Shared secret the Kindle viewer sends with every action. Actions are refused when it is not set.
+  actionToken: process.env.ACTION_TOKEN,
   // "Name|https://...ics;Name 2|https://...ics". Secret iCal addresses stay in the environment.
   calendars: (process.env.CALENDARS ?? "")
     .split(";")

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { Snapshot } from "./model.ts";
 import { agendaScreen } from "./screens/agenda.ts";
 import { homeScreen } from "./screens/home.ts";
+import { clientInfo } from "./screens/index.ts";
 import { nhaScreen } from "./screens/nha.ts";
 import { sleepScreen } from "./screens/sleep.ts";
 
@@ -36,4 +37,34 @@ test("a failed source with no cache shows its message, not pending", () => {
   assert.doesNotMatch(agendaScreen(snap, {}, now), /Đang tải lịch…/);
   assert.match(homeScreen(snap, {}, now), /Chưa kết nối lịch/);
   assert.match(nhaScreen(snap, {}, now), /Chưa kết nối Home Assistant/);
+});
+
+test("client query values are clamped; junk is dropped so it cannot force new renders", () => {
+  const q = (s: string) => clientInfo(new URLSearchParams(s));
+  assert.equal(q("batt=82.6").battery, 83);
+  assert.equal(q("batt=250").battery, 100);
+  assert.equal(q("batt=-5").battery, 0);
+  assert.equal(q("batt=abc").battery, undefined);
+  assert.equal(q("").battery, undefined);
+  assert.equal(q("next=abc").nextAt, undefined);
+  assert.equal(q("next=1700000000").nextAt?.getTime(), 1_700_000_000_000);
+});
+
+test("HA text never reaches the page unescaped", () => {
+  const snap = empty();
+  snap.rooms.value = [
+    { key: "bedroom", name: "<b>x</b>", ac: { mode: '<img src=x data-action="ac.x.toggle">', setpoint: 26 } },
+  ];
+  for (const html of [homeScreen(snap, {}, now), sleepScreen(snap, {}, now, now)]) {
+    assert.doesNotMatch(html, /<img|<b>/);
+  }
+});
+
+test("missing weather values show as dashes, not 0°", () => {
+  const snap = empty();
+  snap.weather.value = { hourly: [{ time: new Date("2026-11-17T11:00:00+07:00") }] };
+  const html = homeScreen(snap, {}, now);
+  assert.match(html, /—°/);
+  assert.match(html, /—%/);
+  assert.doesNotMatch(html, />0°</);
 });

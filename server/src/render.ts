@@ -14,11 +14,28 @@ export interface TapRegion {
 }
 
 let browser: Promise<Browser> | undefined;
+let connected = false;
 
-function getBrowser() {
-  browser ??= chromium.launch({ args: ["--font-render-hinting=none", "--disable-lcd-text"] });
+// A failed launch or a crashed browser is forgotten, so the next render launches a new one.
+export function getBrowser(): Promise<Browser> {
+  browser ??= chromium.launch({ args: ["--font-render-hinting=none", "--disable-lcd-text"] }).then(
+    (b) => {
+      connected = true;
+      b.on("disconnected", () => {
+        connected = false;
+        browser = undefined;
+      });
+      return b;
+    },
+    (e) => {
+      browser = undefined;
+      throw e;
+    },
+  );
   return browser;
 }
+
+export const browserConnected = () => connected;
 
 // Kindle panels show 16 gray levels; snapping here keeps text edges crisp instead of letting the panel dither.
 async function toKindlePng(png: Buffer): Promise<Buffer> {
@@ -41,13 +58,32 @@ export async function toFramebuffer(png: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-export async function render(body: string): Promise<{ png: Buffer; regions: TapRegion[] }> {
-  const page = await (await getBrowser()).newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
+// One render at a time: each is a full browser page, and the Kindle asks for several screens at once.
+let queue: Promise<unknown> = Promise.resolve();
+
+export function render(body: string): Promise<{ png: Buffer; regions: TapRegion[] }> {
+  const run = queue.then(() => draw(body));
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function draw(body: string): Promise<{ png: Buffer; regions: TapRegion[] }> {
+  // No page scripts: the page is built from fetched text (calendar titles, HA names).
+  const page = await (await getBrowser()).newPage({
+    viewport: { width: WIDTH, height: HEIGHT },
+    deviceScaleFactor: 1,
+    javaScriptEnabled: false,
+  });
+  // A hung page must not block the render queue for ever.
+  page.setDefaultTimeout(15_000);
   try {
+    // The page is built from fetched data; it must never load anything (fonts are inlined data URLs).
+    await page.route("**/*", (route) => route.abort());
     await page.setContent(
       `<!doctype html><html lang="vi"><head><meta charset="utf-8"><style>${fontCss}\nbody{margin:0}</style></head><body>${body}</body></html>`,
     );
-    await page.evaluate(() => document.fonts.ready);
+    // Fonts are inline, so this is instant; the race only guards the render queue against a hang.
+    await Promise.race([page.evaluate(() => document.fonts.ready), new Promise((r) => setTimeout(r, 3_000))]);
     const regions = await page.$$eval("[data-action]", (els) =>
       els.map((el) => {
         const r = el.getBoundingClientRect();

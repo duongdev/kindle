@@ -28,7 +28,7 @@ const CELL =
 
 // Status cells, not buttons: nothing on the sleep screen looks tappable.
 function roomCell(r: RoomState): string {
-  return `<div data-room="${esc(r.key)}" style="${CELL}; grid-template-rows: 44px 34px 1fr"><span style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline"><span style="font-size: 32px; line-height: 44px; font-weight: 600; ${ELL}">${esc(r.name)}</span><span style="font-size: 40px; line-height: 44px; font-weight: 700; font-variant-numeric: tabular-nums">${deg(r.tempC)}</span></span><span style="font-size: 26px; line-height: 34px; ${ELL}">${feelsLine(r)}</span><span style="align-self: end; font-size: 28px; line-height: 36px; ${acOn(r) ? "font-weight: 700" : "color: #333333"}; ${ELL}">${acOn(r) ? acLine(r) : "Máy lạnh tắt"}</span></div>`;
+  return `<div data-room="${esc(r.key)}" style="${CELL}; grid-template-rows: 44px 34px 1fr"><span style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline"><span style="font-size: 32px; line-height: 44px; font-weight: 600; ${ELL}">${esc(r.name)}</span><span style="font-size: 40px; line-height: 44px; font-weight: 700; font-variant-numeric: tabular-nums">${deg(r.tempC)}</span></span><span style="font-size: 26px; line-height: 34px; ${ELL}">${esc(feelsLine(r))}</span><span style="align-self: end; font-size: 28px; line-height: 36px; ${acOn(r) ? "font-weight: 700" : "color: #333333"}; ${ELL}">${esc(acOn(r) ? acLine(r) : "Máy lạnh tắt")}</span></div>`;
 }
 
 // No state yet: name from config. Pending (first load) has a dashed top rule (states.md).

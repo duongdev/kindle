@@ -34,7 +34,7 @@ const look = (on: boolean) => (on ? "background: #000000; color: #ffffff" : "bac
 function acTile(r: RoomState): string {
   const on = acOn(r);
   const action = r.ac ? ` data-action="ac.${esc(r.key)}.toggle"` : "";
-  return `<div${action} style="${BUTTON}; ${look(on)}; padding: 14px 24px; display: grid; grid-template-rows: 44px 34px 1fr"><span style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline"><span style="font-size: 32px; line-height: 44px; font-weight: 600; ${ELL}">${esc(r.name)}</span><span style="font-size: 40px; line-height: 44px; font-weight: 700; font-variant-numeric: tabular-nums">${deg(r.tempC)}</span></span><span style="font-size: 26px; line-height: 34px; ${ELL}">${feelsLine(r)}</span><span style="align-self: end; font-size: 28px; line-height: 36px; ${on ? "font-weight: 700; " : ""}${ELL}">${acLine(r)}</span></div>`;
+  return `<div${action} style="${BUTTON}; ${look(on)}; padding: 14px 24px; display: grid; grid-template-rows: 44px 34px 1fr"><span style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline"><span style="font-size: 32px; line-height: 44px; font-weight: 600; ${ELL}">${esc(r.name)}</span><span style="font-size: 40px; line-height: 44px; font-weight: 700; font-variant-numeric: tabular-nums">${deg(r.tempC)}</span></span><span style="font-size: 26px; line-height: 34px; ${ELL}">${esc(feelsLine(r))}</span><span style="align-self: end; font-size: 28px; line-height: 36px; ${on ? "font-weight: 700; " : ""}${ELL}">${esc(acLine(r))}</span></div>`;
 }
 
 const LABEL =

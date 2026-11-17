@@ -55,17 +55,39 @@ async function callService(domain: string, service: string, data: Record<string,
   await send("POST", `${url}/api/services/${domain}/${service}`, data, headers);
 }
 
-export async function acToggle(roomKey: string, currentlyOn: boolean) {
-  const entity_id = config.rooms.find((r) => r.key === roomKey)?.climate;
-  if (!entity_id) throw new Error(`no AC for room ${roomKey}`);
-  if (currentlyOn) return callService("climate", "set_hvac_mode", { entity_id, hvac_mode: "off" });
-  const p = config.acPreset;
-  await callService("climate", "set_temperature", { entity_id, temperature: p.temperature, hvac_mode: p.hvac });
-  await callService("climate", "set_fan_mode", { entity_id, fan_mode: p.fan });
+// The ACs are IR: every service call is one IR burst, and the blaster drops a burst sent right after another.
+const IR_GAP_MS = 2_000;
+
+export type AcState = NonNullable<RoomState["ac"]>;
+
+// The fewest service calls that take the AC from `had` (last state the device confirmed) to `want`.
+// Every call sets absolute values, so a later call never depends on an earlier one being sent.
+export function acPlan(want: AcState, had: AcState): { service: string; data: Record<string, unknown> }[] {
+  if (want.mode === "off") {
+    if (had.mode !== "off") return [{ service: "set_hvac_mode", data: { hvac_mode: "off" } }];
+    // Off stays off: HA only stores a new setpoint, no IR is sent.
+    return want.setpoint !== undefined && want.setpoint !== had.setpoint
+      ? [{ service: "set_temperature", data: { temperature: want.setpoint } }]
+      : [];
+  }
+  const calls = [];
+  if (want.mode !== had.mode || want.setpoint !== had.setpoint) {
+    calls.push(
+      want.setpoint === undefined
+        ? { service: "set_hvac_mode", data: { hvac_mode: want.mode } }
+        : { service: "set_temperature", data: { temperature: want.setpoint, hvac_mode: want.mode } },
+    );
+  }
+  if (want.fanMode && want.fanMode !== had.fanMode)
+    calls.push({ service: "set_fan_mode", data: { fan_mode: want.fanMode } });
+  return calls;
 }
 
-export async function acSetpoint(roomKey: string, setpoint: number) {
+export async function acApply(roomKey: string, want: AcState, had: AcState) {
   const entity_id = config.rooms.find((r) => r.key === roomKey)?.climate;
   if (!entity_id) throw new Error(`no AC for room ${roomKey}`);
-  await callService("climate", "set_temperature", { entity_id, temperature: setpoint });
+  for (const [i, c] of acPlan(want, had).entries()) {
+    if (i) await new Promise((r) => setTimeout(r, IR_GAP_MS));
+    await callService("climate", c.service, { entity_id, ...c.data });
+  }
 }

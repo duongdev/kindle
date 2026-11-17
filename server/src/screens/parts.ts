@@ -23,10 +23,13 @@ export function page(body: string): string {
 export const pending = (s: Source<unknown>) => s.value === undefined && !s.error;
 export const DASHED = "border: 2px dashed #000000; box-sizing: border-box";
 
+// Oldest successful fetch among sources that ever succeeded: a source that never worked (not set up, down
+// since boot) must not hide the "stale" warning for the others.
 export function oldestOk(snap: Snapshot): Date | undefined {
-  const times = Object.values(snap).map((s) => s.okAt?.getTime() ?? 0);
-  const oldest = Math.min(...times);
-  return oldest > 0 ? new Date(oldest) : undefined;
+  const times = Object.values(snap)
+    .map((s: Source<unknown>) => s.okAt?.getTime())
+    .filter((t): t is number => t !== undefined);
+  return times.length ? new Date(Math.min(...times)) : undefined;
 }
 
 // states.md "Status line". Priority: low battery, stale, then the screen's normal text.
@@ -70,14 +73,14 @@ export function weatherZone(snap: Snapshot, now: Date): string {
   if (!w) {
     return `<div data-zone="weather" style="height: 270px; flex-shrink: 0; box-sizing: border-box; border-bottom: 3px solid #000000; display: flex; align-items: center; font-size: 36px; font-weight: 600">—° · Chưa có dữ liệu</div>`;
   }
-  const rain = w.hourly.find((h) => sameDay(h.time, now) && h.time > now && h.rainPct >= 50);
+  const rain = w.hourly.find((h) => sameDay(h.time, now) && h.time > now && (h.rainPct ?? 0) >= 50);
   const cond = `${weatherLabel(w.code)} · ${rain ? `Mưa lúc ${hhmm(rain.time)}` : "Không mưa"}`;
   const cols = w.hourly
     .filter((h) => h.time > now)
     .slice(0, 6)
     .map(
       (h) =>
-        `<div style="display: grid; grid-template-rows: 34px 42px 68px 32px; justify-items: center; align-items: end"><span style="font-size: 24px; color: #333333">${h.time.getHours()}h</span><span style="font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums">${deg(h.tempC)}</span><span style="width: 36px; height: 64px; box-sizing: border-box; border: 2px solid #000000; display: flex; align-items: flex-end"><span style="width: 100%; height: ${Math.round(h.rainPct * 0.6)}px; background: #000000"></span></span><span style="font-size: 24px; font-variant-numeric: tabular-nums">${h.rainPct}%</span></div>`,
+        `<div style="display: grid; grid-template-rows: 34px 42px 68px 32px; justify-items: center; align-items: end"><span style="font-size: 24px; color: #333333">${h.time.getHours()}h</span><span style="font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums">${deg(h.tempC)}</span><span style="width: 36px; height: 64px; box-sizing: border-box; border: 2px solid #000000; display: flex; align-items: flex-end"><span style="width: 100%; height: ${Math.round((h.rainPct ?? 0) * 0.6)}px; background: #000000"></span></span><span style="font-size: 24px; font-variant-numeric: tabular-nums">${h.rainPct ?? "—"}%</span></div>`,
     )
     .join("");
   return `<div data-zone="weather" style="height: 270px; flex-shrink: 0; box-sizing: border-box; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 3px solid #000000">

@@ -21,7 +21,8 @@ export function sameDay(a: Date, b: Date) {
 }
 
 // WMO weather interpretation codes (Open-Meteo).
-export function weatherLabel(code: number): string {
+export function weatherLabel(code: number | undefined): string {
+  if (code === undefined) return "—";
   if (code === 0) return "Trời quang";
   if (code === 1) return "Ít mây";
   if (code === 2) return "Có mây";
@@ -48,8 +49,21 @@ const STORM =
   '<path d="M7 15h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 15z"/><path d="M12 15l-2 4h4l-2 4"/>';
 const FOG = '<path d="M4 9h16M4 13h16M4 17h16"/>';
 
-export function weatherIcon(code: number, size = 88): string {
-  const body = code === 0 ? SUN : code <= 2 ? PART : code === 3 ? CLOUD : code <= 48 ? FOG : code >= 95 ? STORM : RAIN;
+export function weatherIcon(code: number | undefined, size = 88): string {
+  const body =
+    code === undefined
+      ? ""
+      : code === 0
+        ? SUN
+        : code <= 2
+          ? PART
+          : code === 3
+            ? CLOUD
+            : code <= 48
+              ? FOG
+              : code >= 95
+                ? STORM
+                : RAIN;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" ${S} aria-hidden="true">${body}</svg>`;
 }
 

@@ -14,13 +14,14 @@ export interface DeviceState {
   detail?: string;
 }
 
+// Fields stay undefined when Open-Meteo leaves them out; screens show "—".
 export interface Weather {
-  tempC: number;
-  apparentC: number;
-  code: number;
-  highC: number;
-  lowC: number;
-  hourly: { time: Date; tempC: number; rainPct: number; code: number }[];
+  tempC?: number;
+  apparentC?: number;
+  code?: number;
+  highC?: number;
+  lowC?: number;
+  hourly: { time: Date; tempC?: number; rainPct?: number; code?: number }[];
 }
 
 export interface CalEvent {
@@ -36,6 +37,10 @@ export interface Source<T> {
   value?: T;
   okAt?: Date;
   error?: string;
+  // Per device: until when refreshes keep the shown (optimistic) state, while a command is queued or just sent.
+  holds?: Record<string, number>;
+  // Bumped on every optimistic write; a fetch that started before a write is dropped.
+  writes?: number;
 }
 
 export interface Snapshot {
