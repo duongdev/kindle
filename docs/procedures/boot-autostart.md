@@ -7,6 +7,7 @@ Issue 09. Starts `kindle/dashd/dashd.sh` at every boot through SpiderCat's boot 
 - SpiderCat's jailbreak installed `/etc/upstart/kmc.conf`. On `framework_ready` (the stock UI is already up) it runs `/mnt/us/emergency.sh` if the file exists, then stops. Nothing else in that job runs after it.
 - Our `emergency.sh` (from `kindle/dashd/emergency.sh`) exits at once. It starts a detached shell that waits 60 s, copies the daemon to `/tmp`, and runs it with a 30 min interval.
 - Nothing is written to the root filesystem. All files are on `/mnt/us`.
+- A daemon started by hand during the 60 s wait is safe: the boot copy sees `/tmp/dashd.pid` and exits.
 
 Risk R26 in `docs/research/05-jailbreak-risks.md` is about running someone else's `emergency.sh`. This one is ours and is kept in the repo.
 

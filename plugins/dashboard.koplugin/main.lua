@@ -1,12 +1,12 @@
 -- Interactive dashboard viewer (issue 10, ADR 0002). Shows the server's screen PNGs full screen and maps
 -- taps to the tap regions the server returns with each screen. All layout lives on the server.
-local Blitbuffer = require("ffi/blitbuffer")
 local DataStorage = require("datastorage")
 local Device = require("device")
 local Dispatcher = require("dispatcher")
 local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
 local ImageWidget = require("ui/widget/imagewidget")
+local InfoMessage = require("ui/widget/infomessage")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local Font = require("ui/font")
 local NetworkMgr = require("ui/network/manager")
@@ -23,13 +23,31 @@ local Screen = Device.screen
 
 local SERVER = os.getenv("DASHBOARD_SERVER") or "http://192.168.1.102:10060"
 local SCREENS = { "home", "agenda", "nha" }
+-- The server refuses actions without this shared secret. It lives on the Kindle only, never in the repo.
+local TOKEN_FILE = "/mnt/us/dashd/action.token"
+
+local function actionToken()
+    local f = io.open(TOKEN_FILE, "r")
+    if not f then return nil end
+    local t = f:read("*l")
+    f:close()
+    return t
+end
+-- Written by the sleep-screen daemon (kindle/dashd/dashd.sh) while it holds the device awake for a refresh.
+local DASHD_WAKING = "/tmp/dashd.waking"
+
+local function daemonWaking()
+    local t = lfs.attributes(DASHD_WAKING, "modification")
+    return t ~= nil and os.time() - t < 120
+end
+
 local DESIGN_W, DESIGN_H = 1264, 1680
 -- Full (flashing) refresh every N clock ticks clears the ghosting that partial refreshes leave (refresh.md).
 local FULL_EVERY = 10
 
 local function http()
     local socketutil = require("socketutil")
-    socketutil:set_timeout(5, 15)
+    socketutil:set_timeout(2, 6)
     return require("socket.http"), socketutil
 end
 
@@ -69,8 +87,9 @@ function DashboardScreen:init()
         }
     end
     self.regions = {}
-    self:load("full")
-    UIManager:nextTick(function() self:prefetch() end)
+    if self:load("full") then
+        UIManager:nextTick(function() self:prefetch() end)
+    end
 end
 
 function DashboardScreen:pngFor(name)
@@ -81,17 +100,21 @@ function DashboardScreen:name()
     return SCREENS[self.index]
 end
 
--- Download one screen's PNG and tap regions into the cache. On failure the last cached copy stays.
+-- Download one screen's PNG into the cache, and its tap regions once. On failure the last cached copy stays.
 function DashboardScreen:fetch(name)
     local png = self:pngFor(name)
     local f = io.open(png .. ".new", "wb")
+    if not f then return false end
     local ok, code = get("/screen/" .. name .. ".png" .. query(), ltn12.sink.file(f))
+    -- The sink closes the file only when the body ends; a failed connect never reaches it.
+    if io.type(f) == "file" then f:close() end
     if not ok then
         logger.warn("dashboard: fetch failed", name, code)
         os.remove(png .. ".new")
         return false
     end
     os.rename(png .. ".new", png)
+    if self.regions_by[name] then return true end
     local body = {}
     if get("/screen/" .. name .. ".json", ltn12.sink.table(body)) then
         local decoded = json.decode(table.concat(body))
@@ -102,6 +125,7 @@ end
 
 -- Show the cached image of the current screen.
 function DashboardScreen:display(refresh)
+    if self.suspended then return end
     local name = self:name()
     local png = self:pngFor(name)
     if self[1] then self[1]:free() end
@@ -125,15 +149,19 @@ function DashboardScreen:display(refresh)
     UIManager:setDirty(self, refresh or "ui")
 end
 
+-- Returns true when fresh data came in.
 function DashboardScreen:load(refresh)
+    if self.suspended then return false end
     logger.info("dashboard: load", self:name(), refresh)
-    self:fetch(self:name())
+    local ok = NetworkMgr:isConnected() and self:fetch(self:name()) or false
     self:display(refresh)
     self:scheduleTick()
+    return ok
 end
 
 -- Keep the screens on either side warm, so a swipe or button press shows at once.
 function DashboardScreen:prefetch()
+    if self.suspended or not NetworkMgr:isConnected() then return end
     for _, d in ipairs({ 1, -1 }) do
         local name = SCREENS[(self.index + d - 1) % #SCREENS + 1]
         self:fetch(name)
@@ -150,7 +178,6 @@ end
 function DashboardScreen:onTick()
     self.ticks = self.ticks + 1
     self:load(self.ticks % FULL_EVERY == 0 and "full" or "ui")
-    UIManager:nextTick(function() self:prefetch() end)
 end
 
 function DashboardScreen:regionAt(x, y)
@@ -160,22 +187,19 @@ function DashboardScreen:regionAt(x, y)
     end
 end
 
--- Pending look (states.md): a thick frame on the tapped region right away, before the network call.
+-- Instant feedback: invert the tapped region with the fastest e-ink mode before any network call.
 function DashboardScreen:markPending(r)
     local s = self.scale
-    local rect = Geom:new{ x = math.floor(r.x * s), y = math.floor(r.y * s), w = math.floor(r.w * s), h = math.floor(r.h * s) }
-    local bw = math.max(3, math.floor(6 * s))
-    self.pending = rect
-    self.pending_border = bw
-    UIManager:setDirty(self, "fast", rect)
+    self.pending = Geom:new{ x = math.floor(r.x * s), y = math.floor(r.y * s), w = math.floor(r.w * s), h = math.floor(r.h * s) }
+    UIManager:setDirty(self, "fast", self.pending)
     UIManager:forceRePaint()
 end
 
 function DashboardScreen:paintTo(bb, x, y)
     InputContainer.paintTo(self, bb, x, y)
     if self.pending then
-        local r, bw = self.pending, self.pending_border
-        bb:paintBorder(r.x, r.y, r.w, r.h, bw, Blitbuffer.COLOR_BLACK)
+        local r = self.pending
+        bb:invertRect(r.x, r.y, r.w, r.h)
     end
 end
 
@@ -183,19 +207,34 @@ function DashboardScreen:onTap(_, ges)
     local r = self:regionAt(ges.pos.x, ges.pos.y)
     if not r then return true end
     if r.id == "nav.agenda" then return self:show(2) end
-    if r.id == "sync.now" then return self:load("full") or true end
+    if r.id == "sync.now" then
+        self:load("full")
+        return true
+    end
+    local token = actionToken()
+    if not token then
+        UIManager:show(InfoMessage:new{ text = _("Thiếu mã xác thực (action.token)"), timeout = 3 })
+        return true
+    end
     self:markPending(r)
     local h, socketutil = http()
     local ok, code = h.request{
         url = SERVER .. "/action/" .. r.id,
         method = "POST",
-        headers = { ["Content-Length"] = "0" },
+        headers = { ["Content-Length"] = "0", ["Authorization"] = "Bearer " .. token },
         source = ltn12.source.empty(),
     }
     socketutil:reset_timeout()
-    if ok ~= 1 or (code ~= 204 and code ~= 429) then logger.warn("dashboard: action failed", r.id, code) end
     self.pending = nil
-    self:load("ui")
+    if ok ~= 1 or (code ~= 204 and code ~= 429) then
+        logger.warn("dashboard: action failed", r.id, code)
+        self:display("ui")
+        UIManager:show(InfoMessage:new{ text = _("Lệnh thất bại: ") .. tostring(code), timeout = 3 })
+        return true
+    end
+    -- The server answers before the device switches and renders the new state from its cache.
+    self:fetch(self:name())
+    self:display("ui")
     return true
 end
 
@@ -209,8 +248,7 @@ function DashboardScreen:show(index)
         UIManager:forceRePaint()
     end
     UIManager:nextTick(function()
-        self:load("ui")
-        self:prefetch()
+        if self:load("ui") then self:prefetch() end
     end)
     return true
 end
@@ -241,19 +279,34 @@ function DashboardScreen:onPrevScreen(_, key)
 end
 
 -- Home is the frame the owner sees first after a wake (screens.md).
+-- Tasks queued before the suspend still run; the flag stops them from drawing over the sleep screen.
 function DashboardScreen:onSuspend()
     logger.info("dashboard: suspend")
+    self.suspended = true
     UIManager:unschedule(self.tick_fn)
+    UIManager:unschedule(self.resume_fn)
     self.index = 1
 end
 
 function DashboardScreen:onResume()
+    -- The daemon's refresh wake looks like a power-button wake; the device goes back to sleep in seconds.
+    if daemonWaking() then
+        logger.info("dashboard: resume by dashd, ignored")
+        return
+    end
     logger.info("dashboard: resume")
-    self:load("full")
+    self.suspended = false
+    self:display("full")
+    -- Wi-Fi comes back a few seconds after the wake.
+    self.resume_fn = self.resume_fn or function()
+        if self:load("ui") then self:prefetch() end
+    end
+    UIManager:scheduleIn(5, self.resume_fn)
 end
 
 function DashboardScreen:onCloseWidget()
     UIManager:unschedule(self.tick_fn)
+    UIManager:unschedule(self.resume_fn)
     if self[1] then self[1]:free() end
 end
 
