@@ -1,0 +1,15 @@
+# Runs on the homelab Docker host (`docker compose up -d --build`).
+# .env holds HA_URL, HA_TOKEN, HB_URL, HB_USER, HB_PASS, CALENDARS; config.json is the private config. Neither is in git.
+services:
+  kindle-dashboard:
+    build: .
+    image: kindle-dashboard:latest
+    restart: unless-stopped
+    ports:
+      - "10060:8080"
+    env_file: .env
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      CONFIG: /app/config.json
+    volumes:
+      - ./config.json:/app/config.json:ro

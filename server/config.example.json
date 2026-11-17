@@ -1,0 +1,38 @@
+{
+  "timezone": "Asia/Ho_Chi_Minh",
+  "location": { "lat": 10.82, "lon": 106.63 },
+  "sleepIntervalMin": 30,
+  "rooms": [
+    {
+      "key": "living",
+      "name": "Phòng khách",
+      "climate": "climate.living_room_ac",
+      "temperature": "sensor.living_room_temperature",
+      "humidity": "sensor.living_room_humidity"
+    },
+    {
+      "key": "bedroom",
+      "name": "Phòng ngủ",
+      "climate": "climate.bedroom_ac",
+      "temperature": "sensor.bedroom_temperature",
+      "humidity": "sensor.bedroom_humidity"
+    },
+    {
+      "key": "office",
+      "name": "Phòng làm việc",
+      "climate": "climate.office_ac",
+      "temperature": "sensor.office_temperature",
+      "humidity": "sensor.office_humidity"
+    }
+  ],
+  "lamp": { "name": "Đèn ngủ", "homebridgeUniqueId": "0000000000000000000000000000000000000000000000000000000000000000", "onBrightness": 10 },
+  "fan": {
+    "name": "Quạt phòng ngủ",
+    "childBridge": "xiaomifan",
+    "url": "http://homebridge.local:51000",
+    "aid": 5,
+    "iids": { "active": 4, "swing": 7, "low": 17, "mid": 20, "high": 23 }
+  },
+  "acPreset": { "hvac": "cool", "temperature": 22, "fan": "auto" },
+  "hiddenCalendars": ["Lunar"]
+}

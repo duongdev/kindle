@@ -1,0 +1,25 @@
+{
+  "name": "kindle-dashboard-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "render": "tsx src/cli.ts",
+    "test": "tsx --test src/*.test.ts",
+    "check": "tsc --noEmit && biome check src"
+  },
+  "packageManager": "pnpm@12.16.1",
+  "dependencies": {
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "ical-expander": "^3.2.0",
+    "playwright-core": "1.65.1",
+    "sharp": "^0.35.5",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
